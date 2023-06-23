@@ -1,6 +1,6 @@
 {
-	"id": "obsidian-sample-plugin",
-	"name": "Sample Plugin",
+	"id": "n24-task-planner",
+	"name": "N24 Task Planner",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
 	"description": "This is a sample plugin for Obsidian. This plugin demonstrates some of the capabilities of the Obsidian API.",

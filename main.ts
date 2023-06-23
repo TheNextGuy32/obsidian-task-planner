@@ -1,137 +1,152 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile,Vault } from 'obsidian';
+import CheckinDatabaseFileManager from "./src/checkinDatabaseFileManager"
+import TaskView from 'src/taskView';
+import { TaskManager } from 'src/taskManager';
 
-// Remember to rename these classes and interfaces!
+export default class N24Checkin extends Plugin {
+	checkinDatabaseFileManager: CheckinDatabaseFileManager
+	taskManager: TaskManager
+	checkinStatusBarElement: HTMLElement
+	taskView: TaskView
+	async findCheckinDatabaseFile(vault: Vault) {
+		var files:TFile[] = vault.getMarkdownFiles()
+		for(var f in files) {
+			if (files[f].basename != "checkin") {
+				continue;
+			}
+			return files[f]
+		}
+		return null
+	}
 
-interface MyPluginSettings {
-	mySetting: string;
-}
+	async activateView() {
+		
+	}
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
-}
+	async loadCheckinDatabaseFileManager(vault: Vault) {
+		var checkinDatabaseFile = await this.findCheckinDatabaseFile(vault)
+		if (checkinDatabaseFile == null) {
+			new Notice('Error: Create checkin file.');
+			return 
+		}
+		this.checkinDatabaseFileManager = new CheckinDatabaseFileManager(vault, checkinDatabaseFile);
+	}
+	async loadTasks(vault: Vault) {
+		this.taskManager = new TaskManager()
+		this.taskManager.loadTasks(vault);
+	}
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+
+	async setCheckinStatusBarAndNotice(vault: Vault) {
+		var checkinName = await this.checkinDatabaseFileManager.calculateDayOfWeekName()
+		var endOfCheckinDate = await this.checkinDatabaseFileManager.getCheckinEndUtcMillsecondTimestamp();
+		var endOfCheckinTime = await this.checkinDatabaseFileManager.getEndOfCurrentCheckinTime(endOfCheckinDate)
+		
+		new Notice('Checkin started. It is ' + checkinName + " " + endOfCheckinTime + ".");
+		this.checkinStatusBarElement.setText(checkinName + " " + endOfCheckinTime);
+	}
+
+	async updateTasksWithUpdatedCheckinsList(vault:Vault){ 
+		var checkinTimestamps = await this.checkinDatabaseFileManager.getCheckins()
+		for(var w in checkinTimestamps) {
+			var checkinTimestamp = checkinTimestamps[w]
+			for(var t in this.taskManager.tasks) {
+				var task = this.taskManager.tasks[t]
+
+				var hasTimestamp = false
+				for(var workedOnUtcTimestamp of task.workedOnUtcTimestamps) {
+					if(workedOnUtcTimestamp == checkinTimestamp) {
+						console.log(`Task ${t} already has checkin ${w}.`)
+						hasTimestamp = true
+						break
+					}
+				}
+				if(hasTimestamp) {
+					break
+				}
+
+				if(task.workedOnUtcTimestamps.length == task.points) {
+					console.log(`Task ${t} full and cannot take checkin ${w}.`)
+					continue
+				}
+
+				
+				await TaskManager.writeTaskStartTimestampToFile(vault, task.file, checkinTimestamp);
+				await this.taskManager.loadTasks(vault)
+				console.log(`Adding checkin ${w} to task ${t}.`)
+				break
+			}
+		}
+	}
+
+	async startCheckin(vault: Vault) {
+		var currentTimestamp = new Date().getTime();
+		await this.checkinDatabaseFileManager.addCheckin(currentTimestamp)
+		var checkinName = await this.checkinDatabaseFileManager.calculateDayOfWeekName()
+			
+		await this.updateTasksWithUpdatedCheckinsList(vault);
+		await this.taskView.recalcTasks();
+
+		this.checkinStatusBarElement.setText(checkinName);
+		new Notice('Checkin started. It is ' + checkinName + ".");
+	}
+
+	async startRestday(vault: Vault) {
+		new Notice('Restday started.');
+	}
+
+	async createTaskView() {
+		
+		this.registerView(
+			TaskView.taskViewType,
+			(leaf) => {
+				this.taskView = new TaskView(leaf, this.taskManager)
+				return this.taskView
+			}
+		);
+
+		this.app.workspace.detachLeavesOfType(TaskView.taskViewType);
+	
+		await this.app.workspace.getRightLeaf(false).setViewState({
+			type: TaskView.taskViewType,
+			active: true,
+		});
+	
+		this.app.workspace.revealLeaf(
+			this.app.workspace.getLeavesOfType(TaskView.taskViewType)[0]
+		);
+	}
 
 	async onload() {
-		await this.loadSettings();
+		this.checkinStatusBarElement = this.addStatusBarItem();
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+		var vault = this.app.vault
+		await this.loadCheckinDatabaseFileManager(vault);
+		await this.loadTasks(vault);
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
+		await this.createTaskView()
+		await this.setCheckinStatusBarAndNotice(vault);
+		
+		await this.updateTasksWithUpdatedCheckinsList(vault);
 
-		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
+			id: 'what-checkin',
+			name: 'What Checkin?',
+			callback: () => this.setCheckinStatusBarAndNotice(vault)
 		});
-		// This adds an editor command that can perform some operation on the current editor instance
 		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
+			id: 'checkin',
+			name: 'Start Checkin',
+			callback: () => this.startCheckin(vault)
 		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
 		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
+			id: 'restday',
+			name: 'Start Restday',
+			editorCallback: () => this.startRestday(vault)
 		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
 	}
 
 	onunload() {
 
-	}
-
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
-
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const {containerEl} = this;
-
-		containerEl.empty();
-
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
-
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
-	}
+	}	
 }
