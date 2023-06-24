@@ -26,8 +26,7 @@ export default class N24Checkin extends Plugin {
 	async loadCheckinDatabaseFileManager(vault: Vault) {
 		var checkinDatabaseFile = await this.findCheckinDatabaseFile(vault)
 		if (checkinDatabaseFile == null) {
-			new Notice('Error: Create checkin file.');
-			return 
+			checkinDatabaseFile = await vault.create("./checkin.md", "")
 		}
 		this.checkinDatabaseFileManager = new CheckinDatabaseFileManager(vault, checkinDatabaseFile);
 	}
@@ -129,11 +128,6 @@ export default class N24Checkin extends Plugin {
 		
 		await this.updateTasksWithUpdatedCheckinsList(vault);
 
-		this.addCommand({
-			id: 'what-checkin',
-			name: 'What Checkin?',
-			callback: () => this.setCheckinStatusBarAndNotice(vault)
-		});
 		this.addCommand({
 			id: 'checkin',
 			name: 'Start Checkin',
