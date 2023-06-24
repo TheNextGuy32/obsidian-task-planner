@@ -28,10 +28,6 @@ export default class TaskView extends ItemView {
 		this.renderTasks(this.app)
 	}
 
-	async createFile(path: string, contents: string) {
-		
-	}
-
 	async renderTasks(app: App) {
 		var container = this.containerEl.children[1]
 		if (this.root == undefined) {
@@ -39,7 +35,7 @@ export default class TaskView extends ItemView {
 		}
 		this.root.render(
 			<React.StrictMode>
-				<TaskManagerView key={Math.random()} app={app} createFileCallback={this.createFile}/>
+				<TaskManagerView app={app}/>
 			</React.StrictMode>
 		);
 	}

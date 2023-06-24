@@ -56,7 +56,7 @@ export default class N24Checkin extends Plugin {
 				var hasTimestamp = false
 				for(var workedOnUtcTimestamp of task.workedOnUtcTimestamps) {
 					if(workedOnUtcTimestamp == checkinTimestamp) {
-						console.log(`Task ${t} already has checkin ${w}.`)
+						// console.log(`Task ${t} already has checkin ${w}.`)
 						hasTimestamp = true
 						break
 					}
@@ -66,14 +66,14 @@ export default class N24Checkin extends Plugin {
 				}
 
 				if(task.workedOnUtcTimestamps.length == task.points) {
-					console.log(`Task ${t} full and cannot take checkin ${w}.`)
+					// console.log(`Task ${t} full and cannot take checkin ${w}.`)
 					continue
 				}
 
 				
 				await TaskManager.writeTaskStartTimestampToFile(vault, task.file, checkinTimestamp);
 				await this.taskManager.loadTasks(vault)
-				console.log(`Adding checkin ${w} to task ${t}.`)
+				// console.log(`Adding checkin ${w} to task ${t}.`)
 				break
 			}
 		}
@@ -118,10 +118,8 @@ export default class N24Checkin extends Plugin {
 
 	async checkFileUpdate(app: App, file: TFile) {
 		if(!file.path.startsWith("05-Tasks")) {
-			console.log("Other file changes")
 			return
 		}
-		console.log(file)
 		await this.taskView.recalcTasks(this.app)
 	}
 

@@ -78,7 +78,25 @@ export class TaskManager {
 			var task = await TaskManager.parseTaskFromFile(vault, file)
 			tasks.push(task)
 		}
+		var index = 0
 		tasks.sort((a,b) => a.order-b.order)
+		tasks.forEach(async (task, _) => {
+			var remainingPoints = task.points - task.workedOnUtcTimestamps.length
+			var newOrder = task.order
+			if (remainingPoints == 0 && task.order < 99999) {
+				newOrder = task.order + 99999		
+			}
+			else {
+				newOrder = index
+				index += 1
+			}
+
+			if (newOrder == task.order) {
+				return
+			}
+			task.order = newOrder
+			await TaskManager.updateTaskOrder(app.vault, task.file, newOrder)
+		})
 		return tasks
 	}
 }

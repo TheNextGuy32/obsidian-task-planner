@@ -4,6 +4,8 @@
 
 .taskNameInput {
 	margin-right: 1em;
+	border-radius: 4px;
+	height: 25px!important;
 }
 
 .taskButton {

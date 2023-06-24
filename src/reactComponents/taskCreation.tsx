@@ -6,7 +6,7 @@ import {TaskManager} from "../taskManager"
 
 interface TaskCreationProps {
 	app: App
-	createFileCallback: (path:string, contents:string) => Promise<void> 
+	reloadTasksCallback: (app:App) => Promise<void> 
 }
 
 type TaskCreationState = {
@@ -25,9 +25,9 @@ class TaskCreation extends React.Component<TaskCreationProps, TaskCreationState>
 			return
 		}
 		var path = `05-Tasks/${this.state.taskNameValue}.md`
-		var contents = `Points: ${this.state.chosenPointsValue}\nOrder: 0\nWorkedOn: \n`
+		var contents = `Points: ${this.state.chosenPointsValue}\nOrder: -1\nWorkedOn: \n`
 		await app.vault.create(path, contents)
-		// await this.props.createFileCallback(path, contents)
+		await this.props.reloadTasksCallback(app)
 
 		this.setState({
 			taskNameValue: ""
