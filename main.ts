@@ -8,6 +8,7 @@ export default class N24Checkin extends Plugin {
 	taskManager: TaskManager
 	checkinStatusBarElement: HTMLElement
 	taskView: TaskView
+	
 	async findCheckinDatabaseFile(vault: Vault) {
 		var files:TFile[] = vault.getMarkdownFiles()
 		for(var f in files) {
@@ -78,24 +79,23 @@ export default class N24Checkin extends Plugin {
 		}
 	}
 
-	async startCheckin(vault: Vault) {
+	async startCheckin(app: App) {
 		var currentTimestamp = new Date().getTime();
 		await this.checkinDatabaseFileManager.addCheckin(currentTimestamp)
 		var checkinName = await this.checkinDatabaseFileManager.calculateDayOfWeekName()
 			
-		await this.updateTasksWithUpdatedCheckinsList(vault);
-		await this.taskView.recalcTasks();
+		await this.updateTasksWithUpdatedCheckinsList(app.vault);
+		await this.taskView.recalcTasks(app);
 
 		this.checkinStatusBarElement.setText(checkinName);
 		new Notice('Checkin started. It is ' + checkinName + ".");
 	}
 
-	async startRestday(vault: Vault) {
+	async startRestday(app: App) {
 		new Notice('Restday started.');
 	}
 
 	async createTaskView() {
-		
 		this.registerView(
 			TaskView.taskViewType,
 			(leaf) => {
@@ -116,6 +116,15 @@ export default class N24Checkin extends Plugin {
 		);
 	}
 
+	async checkFileUpdate(app: App, file: TFile) {
+		if(!file.path.startsWith("05-Tasks")) {
+			console.log("Other file changes")
+			return
+		}
+		console.log(file)
+		await this.taskView.recalcTasks(this.app)
+	}
+
 	async onload() {
 		this.checkinStatusBarElement = this.addStatusBarItem();
 
@@ -128,15 +137,18 @@ export default class N24Checkin extends Plugin {
 		
 		await this.updateTasksWithUpdatedCheckinsList(vault);
 
+		this.registerEvent(this.app.vault.on('create', async (file: TFile) => await this.checkFileUpdate(this.app, file)));
+		this.registerEvent(this.app.vault.on('rename', async (file: TFile) => await this.checkFileUpdate(this.app, file)));
+
 		this.addCommand({
 			id: 'checkin',
 			name: 'Start Checkin',
-			callback: () => this.startCheckin(vault)
+			callback: () => this.startCheckin(this.app)
 		});
 		this.addCommand({
 			id: 'restday',
 			name: 'Start Restday',
-			editorCallback: () => this.startRestday(vault)
+			editorCallback: () => this.startRestday(this.app)
 		});
 	}
 

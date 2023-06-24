@@ -10,16 +10,33 @@ export type Task = {
 export class TaskManager {
 	tasks: Task[]
 
+	static timestampsToString(timestamps: number[]) {
+		if (timestamps.length == 0) {
+			return ""
+		}
+		return timestamps.toString()
+	}
+
 	static async writeTaskStartTimestampToFile(vault: Vault, taskFile: TFile, startedUtcTimestamp: number) {
 		var task = await TaskManager.parseTaskFromFile(vault, taskFile)
 		task.workedOnUtcTimestamps.push(startedUtcTimestamp)
-		var newContents = `Points: ${task.points}\nOrder: ${task.order}\nWorkedOn: ${task.workedOnUtcTimestamps}`
+		var newContents = `Points: ${task.points}\nOrder: ${task.order}\nWorkedOn: ${TaskManager.timestampsToString(task.workedOnUtcTimestamps)}`
+		await vault.modify(taskFile, newContents)
+	}
+
+	static async updateTaskOrder(vault: Vault, taskFile: TFile, newOrder:number) {
+		var task = await TaskManager.parseTaskFromFile(vault, taskFile)
+		var newContents = `Points: ${task.points}\nOrder: ${newOrder}\nWorkedOn: ${TaskManager.timestampsToString(task.workedOnUtcTimestamps)}`
 		await vault.modify(taskFile, newContents)
 	}
 
 	/** Reloads this.tasks */
 	async loadTasks(vault: Vault) {
-		this.tasks = await this.calculateTasks(vault)
+		this.tasks = await TaskManager.calculateTasks(vault)
+	}
+
+	static async getTasks(vault: Vault) {
+		return await TaskManager.calculateTasks(vault)
 	}
 
 	static async parseTaskFromFile(vault:Vault, file:TFile): Promise<Task> {
@@ -50,7 +67,7 @@ export class TaskManager {
 		return task
 	}
 
-	private async calculateTasks(vault: Vault): Promise<Task[]> {
+	private static async calculateTasks(vault: Vault): Promise<Task[]> {
 		var files:TFile[] = vault.getMarkdownFiles()
 		var tasks:Task[] = []
 		for (var i = 0 ; i < files.length; i++) {

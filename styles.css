@@ -1,8 +1,35 @@
-/*
+.doneTask {
+	color:#5f5f5f
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.taskNameInput {
+	margin-right: 1em;
+}
 
-If your plugin does not need CSS, delete this file.
+.taskButton {
+	margin-right:3px;
+	background-color: rgb(38,38,38)!important;
+	box-shadow: none!important;
+	max-width:30px;
+}
+.taskButton:hover, .pointsButton:hover{
+	background-color: rgb(55,55,55)!important;
+}
 
-*/
+.pointsButton {
+	margin-right:3px;
+	background-color: rgb(38,38,38)!important;
+	box-shadow: none!important;
+	max-width:30px;
+}
+
+.activePointsButton {
+	margin-right:3px;
+	background-color: rgb(55,55,55)!important;
+	box-shadow: none!important;
+	max-width:30px;
+}
+
+.activePointsButton:hover {
+	background-color: rgb(75,75,75)!important;
+}

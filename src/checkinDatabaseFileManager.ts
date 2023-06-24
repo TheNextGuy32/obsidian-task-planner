@@ -49,7 +49,6 @@ export default class CheckinDatabaseFileManager {
 	async calculateDayOfWeekName() {
 		var checkinDatabaseFileContents:string = await this.vault.read(this.checkinDatabaseFile);
 		var lines = checkinDatabaseFileContents.split("\n").filter((checkin) => checkin.trim() == "")
-		console.log(lines)
 		return days[lines.length%days.length]
 	}
 }
